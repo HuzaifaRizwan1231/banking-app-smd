@@ -1,50 +1,64 @@
-# Welcome to your Expo app 👋
+# Banking App SMD
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A premium React Native banking application built with Expo Router, featuring modern UI/UX based on Figma designs.
 
-## Get started
+## 🚀 Features Implemented
+- [x] **Splash Screen**: Animated logo with fade-in effect.
+- [x] **Onboarding Screen**: Modern illustration with Poppins typography.
+- [ ] **Log In/Sign Up Choice** (Coming soon)
+- [ ] **Log In Screen** (Coming soon)
+- [ ] **Sign Up Screen** (Coming soon)
+- [ ] **Forgot Password** (Coming soon)
+- [ ] **Verify OTP** (Coming soon)
 
-1. Install dependencies
+## 🛠️ Tech Stack
+- **Framework**: [Expo](https://expo.dev/) / React Native
+- **Navigation**: Expo Router (File-based)
+- **Icons**: @expo/vector-icons
+- **Fonts**: Poppins (Google Fonts)
+- **Styling**: StyleSheet (Vanilla React Native)
 
+## 📋 Prerequisites
+Before you begin, ensure you have the following installed:
+- [Node.js](https://nodejs.org/) (LTS version recommended)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [Expo Go](https://expo.dev/expo-go) app on your physical device (Android/iOS)
+
+## ⚙️ Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd banking-app-smd
+   ```
+
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. Start the app
-
+3. **Install necessary Expo modules:**
    ```bash
-   npx expo start
+   npx expo install @expo-google-fonts/poppins react-native-svg
    ```
 
-In the output, you'll find options to open the app in a
+## 🏃 Running the App
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+1. **Start the development server:**
+   ```bash
+   npm start
+   ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+2. **Open the app:**
+   - **Android**: Press `a` or scan the QR code with the Expo Go app.
+   - **iOS**: Press `i` (requires macOS and Simulator) or scan the QR code with the Camera app.
+   - **Web**: Press `w` to open in your browser.
 
-## Get a fresh project
+## 📁 Project Structure
+- `app/`: Contains the screens and routing logic.
+- `components/`: Reusable UI components.
+- `constants/`: Theme colors and typography settings.
+- `assets/`: Images and static files.
 
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 🎨 UI Design
+The UI follows the **Colormine Banking App UI Kit**. It uses a vibrant purple primary color and the **Poppins** font family for a premium look and feel.
