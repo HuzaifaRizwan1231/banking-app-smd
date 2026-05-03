@@ -52,6 +52,16 @@ export default function VerifyOTPScreen() {
         await userCredential.user.updateProfile({ displayName: name });
       }
 
+      // Initialize user in Firestore
+      if (userCredential.user) {
+        const { userService } = require('@/services/userService');
+        await userService.initializeUser(userCredential.user.uid, {
+          displayName: name || userCredential.user.displayName || 'User',
+          email: userCredential.user.email || '',
+          phoneNumber: userCredential.user.phoneNumber || phoneNumber || '',
+        });
+      }
+
       Alert.alert('Success', 'Verified successfully!', [
         { text: 'OK', onPress: () => router.replace('/(tabs)') } 
       ]);

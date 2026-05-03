@@ -56,7 +56,16 @@ export default function SignupScreen() {
         throw new Error('No ID token found');
       }
       const googleCredential = auth.GoogleAuthProvider.credential(userInfo.data.idToken);
-      await auth().signInWithCredential(googleCredential);
+      const userCredential = await auth().signInWithCredential(googleCredential);
+      
+      // Initialize user in Firestore if not exists
+      const { userService } = require('@/services/userService');
+      await userService.initializeUser(userCredential.user.uid, {
+        displayName: userCredential.user.displayName || 'User',
+        email: userCredential.user.email || '',
+        phoneNumber: userCredential.user.phoneNumber || '',
+      });
+
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Google Signup Failed', error.message);
@@ -74,7 +83,16 @@ export default function SignupScreen() {
         throw new Error('Something went wrong obtaining access token');
       }
       const facebookCredential = auth.FacebookAuthProvider.credential(data.accessToken);
-      await auth().signInWithCredential(facebookCredential);
+      const userCredential = await auth().signInWithCredential(facebookCredential);
+      
+      // Initialize user in Firestore if not exists
+      const { userService } = require('@/services/userService');
+      await userService.initializeUser(userCredential.user.uid, {
+        displayName: userCredential.user.displayName || 'User',
+        email: userCredential.user.email || '',
+        phoneNumber: userCredential.user.phoneNumber || '',
+      });
+
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Facebook Signup Failed', error.message);

@@ -6,49 +6,35 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
+import auth from '@react-native-firebase/auth';
+import { userService, UserData, Transaction } from '@/services/userService';
 
-const TRANSACTIONS = [
-  {
-    id: '1',
-    title: 'Transfer To Ahmad F',
-    date: '6 Sep 2024 • 17:02',
-    amount: -163.98,
-    type: 'transfer',
-    icon: 'swap-horizontal-outline',
-    iconBg: '#F5F5F5',
-  },
-  {
-    id: '2',
-    title: 'Mony Wallet',
-    date: '6 Sep 2024 • 17:02',
-    amount: 21.21,
-    type: 'deposit',
-    icon: 'wallet-outline',
-    iconBg: '#FFF3E0',
-  },
-  {
-    id: '3',
-    title: 'Transfer To Ahmad F',
-    date: '6 Sep 2024 • 17:02',
-    amount: 21.21,
-    type: 'transfer',
-    icon: 'swap-horizontal-outline',
-    iconBg: '#F5F5F5',
-  },
-  {
-    id: '4',
-    title: 'Shopping',
-    date: '6 Sep 2024 • 17:02',
-    amount: -102.00,
-    type: 'shopping',
-    icon: 'cart-outline',
-    iconBg: '#E1F5FE',
-  },
-];
+const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
+  const [userData, setUserData] = React.useState<UserData | null>(null);
+  const [transactions, setTransactions] = React.useState<Transaction[]>([]);
+  const user = auth().currentUser;
+
+  React.useEffect(() => {
+    if (!user) return;
+
+    // Subscribe to user data (balance, card)
+    const unsubscribeUser = userService.subscribeToUser(user.uid, (data) => {
+      setUserData(data);
+    });
+
+    // Subscribe to latest 4 transactions
+    const unsubscribeTransactions = userService.subscribeToTransactions(user.uid, (data) => {
+      setTransactions(data);
+    }, 4);
+
+    return () => {
+      unsubscribeUser();
+      unsubscribeTransactions();
+    };
+  }, [user]);
 
   const renderQuickAction = (icon: any, label: string, color: string, onPress?: () => void) => (
     <TouchableOpacity style={styles.actionItem} onPress={onPress}>
@@ -59,6 +45,13 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
+  const formatDate = (date: any) => {
+    if (!date) return '';
+    const d = date.toDate ? date.toDate() : new Date(date);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + 
+           ' • ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -66,7 +59,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.balanceLabel}>Total Balance</Text>
-            <Text style={styles.balanceAmount}>$980.45</Text>
+            <Text style={styles.balanceAmount}>${userData?.balance?.toFixed(2) || '0.00'}</Text>
           </View>
           <View style={styles.headerIcons}>
             <TouchableOpacity style={styles.headerIcon}>
@@ -93,17 +86,17 @@ export default function HomeScreen() {
           >
             <View style={styles.cardHeader}>
               <Ionicons name="wifi-outline" size={24} color={Colors.white} style={styles.cardWifi} />
-              <Text style={styles.cardType}>VIS</Text>
+              <Text style={styles.cardType}>{userData?.card?.type || 'VIS'}</Text>
             </View>
-            <Text style={styles.cardNumber}>1253  5432  3521  3090</Text>
+            <Text style={styles.cardNumber}>{userData?.card?.number || '****  ****  ****  ****'}</Text>
             <View style={styles.cardFooter}>
               <View>
                 <Text style={styles.cardHolderLabel}>Card Holder</Text>
-                <Text style={styles.cardHolderName}>Soroush Nasrpour</Text>
+                <Text style={styles.cardHolderName}>{userData?.card?.holderName || user?.displayName || 'User'}</Text>
               </View>
               <View>
                 <Text style={styles.cardHolderLabel}>Expires</Text>
-                <Text style={styles.cardHolderName}>09/24</Text>
+                <Text style={styles.cardHolderName}>{userData?.card?.expiry || '00/00'}</Text>
               </View>
             </View>
           </LinearGradient>
@@ -121,7 +114,7 @@ export default function HomeScreen() {
         <View style={styles.actionsGrid}>
           {renderQuickAction('swap-horizontal-outline', 'Transfers', '#7F3DFF', () => router.push('/send-money'))}
           {renderQuickAction('card-outline', 'Payments', '#5B259F')}
-          {renderQuickAction('add-circle-outline', 'Top up', '#0077FF')}
+          {renderQuickAction('add-circle-outline', 'Top up', '#0077FF', () => router.push('/top-up'))}
           {renderQuickAction('grid-outline', 'Details', '#1E1E1E')}
         </View>
 
@@ -133,23 +126,29 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {TRANSACTIONS.map((item) => (
-          <TouchableOpacity key={item.id} style={styles.transactionItem}>
-            <View style={[styles.transactionIconContainer, { backgroundColor: item.iconBg }]}>
-              <Ionicons name={item.icon as any} size={24} color={Colors.text} />
-            </View>
-            <View style={styles.transactionInfo}>
-              <Text style={styles.transactionTitle}>{item.title}</Text>
-              <Text style={styles.transactionDate}>{item.date}</Text>
-            </View>
-            <Text style={[
-              styles.transactionAmount,
-              { color: item.amount < 0 ? '#FD3C4A' : '#00A86B' }
-            ]}>
-              {item.amount < 0 ? `-$${Math.abs(item.amount)}` : `+$${item.amount}`}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {transactions.length === 0 ? (
+          <View style={{ padding: 40, alignItems: 'center' }}>
+            <Text style={{ color: Colors.textSecondary, fontFamily: Typography.fontFamily.medium }}>No transactions yet</Text>
+          </View>
+        ) : (
+          transactions.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.transactionItem}>
+              <View style={[styles.transactionIconContainer, { backgroundColor: item.iconBg }]}>
+                <Ionicons name={item.icon as any} size={24} color={Colors.text} />
+              </View>
+              <View style={styles.transactionInfo}>
+                <Text style={styles.transactionTitle}>{item.title}</Text>
+                <Text style={styles.transactionDate}>{formatDate(item.date)}</Text>
+              </View>
+              <Text style={[
+                styles.transactionAmount,
+                { color: item.amount < 0 ? '#FD3C4A' : '#00A86B' }
+              ]}>
+                {item.amount < 0 ? `-$${Math.abs(item.amount).toFixed(2)}` : `+$${item.amount.toFixed(2)}`}
+              </Text>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );

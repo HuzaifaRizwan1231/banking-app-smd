@@ -6,9 +6,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import auth from '@react-native-firebase/auth';
 
+import { userService, UserData } from '@/services/userService';
+
 export default function AccountScreen() {
   const router = useRouter();
   const user = auth().currentUser;
+  const [userData, setUserData] = React.useState<UserData | null>(null);
+
+  React.useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = userService.subscribeToUser(user.uid, (data) => {
+      setUserData(data);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const handleLogout = async () => {
     Alert.alert('Logout', 'Are you sure you want to log out?', [
@@ -54,14 +67,18 @@ export default function AccountScreen() {
           <View style={styles.avatarCircle}>
             <Ionicons name="person" size={40} color={Colors.textSecondary} />
           </View>
-          <Text style={styles.userName}>{user?.displayName || 'Emmie Watson'}</Text>
-          <Text style={styles.userLocation}>Malang, Indonesia</Text>
+          <Text style={styles.userName}>{userData?.displayName || user?.displayName || 'User'}</Text>
+          <Text style={styles.userLocation}>{userData?.location || 'Location not set'}</Text>
         </View>
 
         {/* Settings List */}
         <View style={styles.settingsList}>
-          {renderSettingItem('person-outline', 'Your Account', 'Name, Email, Handphone', Colors.primary)}
-          {renderSettingItem('card-outline', 'Payment', 'Card, Method, Wishlist', '#0077FF')}
+          <TouchableOpacity onPress={() => router.push('/edit-profile')}>
+            {renderSettingItem('person-outline', 'Your Account', 'Name, Email, Handphone', Colors.primary)}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/budget')}>
+            {renderSettingItem('pie-chart-outline', 'Budgeting', 'Category Limits, Tracking', '#0077FF')}
+          </TouchableOpacity>
           {renderSettingItem('time-outline', 'History Activities', 'Tracking, Alert, Notifications', '#00A86B')}
           {renderSettingItem('shield-checkmark-outline', 'Privacy & Security', 'Password, Privilege, Locations', '#FD3C4A')}
           {renderSettingItem('information-circle-outline', 'About Us', 'Explanation of our history', '#FF9500')}

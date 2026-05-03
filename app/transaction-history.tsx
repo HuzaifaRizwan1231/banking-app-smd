@@ -5,31 +5,61 @@ import { Typography } from '@/constants/Typography';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-const HISTORY = [
-  {
-    day: 'Today',
-    date: '09/01/24',
-    items: [
-      { id: '1', title: 'Transfer To Ahmad F', date: '6 Sep 2024 • 17:02', amount: -163.98, icon: 'swap-horizontal-outline', bg: '#F5F5F5' },
-      { id: '2', title: 'Receive from Annisa', date: '6 Sep 2024 • 17:02', amount: 21.21, icon: 'download-outline', bg: '#FFF3E0' },
-      { id: '3', title: 'Game Top Up', date: '6 Sep 2024 • 17:02', amount: -13.98, icon: 'game-controller-outline', bg: '#E1F5FE' },
-      { id: '4', title: 'Withdraw Pay', date: '6 Sep 2024 • 17:02', amount: -163.98, icon: 'arrow-up-outline', bg: '#F5F5F5' },
-      { id: '5', title: 'Receive from Annisa', date: '6 Sep 2024 • 17:02', amount: 21.21, icon: 'download-outline', bg: '#FFF3E0' },
-    ]
-  },
-  {
-    day: 'Yesterday',
-    date: '08/01/24',
-    items: [
-      { id: '6', title: 'Online Shop', date: '5 Sep 2024 • 17:02', amount: -163.98, icon: 'cart-outline', bg: '#F5F5F5' },
-      { id: '7', title: 'Withdraw Payza', date: '5 Sep 2024 • 17:02', amount: 21.21, icon: 'card-outline', bg: '#E8E8E8' },
-      { id: '8', title: 'Receive from Annisa', date: '5 Sep 2024 • 17:02', amount: 21.21, icon: 'download-outline', bg: '#FFF3E0' },
-    ]
-  }
-];
+import auth from '@react-native-firebase/auth';
+import { userService, Transaction } from '@/services/userService';
 
 export default function TransactionHistoryScreen() {
   const router = useRouter();
+  const [transactions, setTransactions] = React.useState<Transaction[]>([]);
+  const user = auth().currentUser;
+
+  React.useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = userService.subscribeToTransactions(user.uid, (data) => {
+      setTransactions(data);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const formatDate = (date: any) => {
+    if (!date) return '';
+    const d = date.toDate ? date.toDate() : new Date(date);
+    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const groupTransactions = () => {
+    const groups: { [key: string]: { day: string, date: string, items: Transaction[] } } = {};
+    
+    transactions.forEach(item => {
+      const d = item.date?.toDate ? item.date.toDate() : new Date(item.date);
+      const dateKey = d.toLocaleDateString('en-GB');
+      const today = new Date().toLocaleDateString('en-GB');
+      const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-GB');
+      
+      let day = dateKey;
+      if (dateKey === today) day = 'Today';
+      else if (dateKey === yesterday) day = 'Yesterday';
+      
+      if (!groups[dateKey]) {
+        groups[dateKey] = {
+          day,
+          date: dateKey,
+          items: []
+        };
+      }
+      groups[dateKey].items.push(item);
+    });
+    
+    return Object.values(groups).sort((a, b) => {
+      const dateA = a.items[0].date?.toDate ? a.items[0].date.toDate() : new Date(a.items[0].date);
+      const dateB = b.items[0].date?.toDate ? b.items[0].date.toDate() : new Date(b.items[0].date);
+      return dateB - dateA;
+    });
+  };
+
+  const groupedHistory = groupTransactions();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -54,35 +84,42 @@ export default function TransactionHistoryScreen() {
           </TouchableOpacity>
         </View>
 
-        {HISTORY.map((group, groupIdx) => (
-          <View key={groupIdx} style={styles.groupContainer}>
-            <View style={styles.groupHeader}>
-              <Text style={styles.groupDay}>{group.day}</Text>
-              <View style={styles.groupDateRow}>
-                <Text style={styles.groupDate}>{group.date}</Text>
-                <Ionicons name="calendar-outline" size={14} color={Colors.textSecondary} />
-              </View>
-            </View>
-
-            {group.items.map((item) => (
-              <TouchableOpacity key={item.id} style={styles.transactionItem}>
-                <View style={[styles.iconContainer, { backgroundColor: item.bg }]}>
-                  <Ionicons name={item.icon as any} size={24} color={Colors.text} />
-                </View>
-                <View style={styles.transactionInfo}>
-                  <Text style={styles.transactionTitle}>{item.title}</Text>
-                  <Text style={styles.transactionDate}>{item.date}</Text>
-                </View>
-                <Text style={[
-                  styles.transactionAmount,
-                  { color: item.amount < 0 ? '#FD3C4A' : '#00A86B' }
-                ]}>
-                  {item.amount < 0 ? `-$${Math.abs(item.amount)}` : `+$${item.amount}`}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        {transactions.length === 0 ? (
+          <View style={{ padding: 60, alignItems: 'center' }}>
+            <Ionicons name="receipt-outline" size={64} color={Colors.border} />
+            <Text style={{ marginTop: 16, color: Colors.textSecondary, fontFamily: Typography.fontFamily.medium }}>No transactions found</Text>
           </View>
-        ))}
+        ) : (
+          groupedHistory.map((group, groupIdx) => (
+            <View key={groupIdx} style={styles.groupContainer}>
+              <View style={styles.groupHeader}>
+                <Text style={styles.groupDay}>{group.day}</Text>
+                <View style={styles.groupDateRow}>
+                  <Text style={styles.groupDate}>{group.date}</Text>
+                  <Ionicons name="calendar-outline" size={14} color={Colors.textSecondary} />
+                </View>
+              </View>
+
+              {group.items.map((item) => (
+                <TouchableOpacity key={item.id} style={styles.transactionItem}>
+                  <View style={[styles.iconContainer, { backgroundColor: item.iconBg }]}>
+                    <Ionicons name={item.icon as any} size={24} color={Colors.text} />
+                  </View>
+                  <View style={styles.transactionInfo}>
+                    <Text style={styles.transactionTitle}>{item.title}</Text>
+                    <Text style={styles.transactionDate}>{formatDate(item.date)}</Text>
+                  </View>
+                  <Text style={[
+                    styles.transactionAmount,
+                    { color: item.amount < 0 ? '#FD3C4A' : '#00A86B' }
+                  ]}>
+                    {item.amount < 0 ? `-$${Math.abs(item.amount).toFixed(2)}` : `+$${item.amount.toFixed(2)}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );

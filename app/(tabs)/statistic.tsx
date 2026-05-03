@@ -6,14 +6,47 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Defs, Stop, LinearGradient as SvgGradient } from 'react-native-svg';
 
+import auth from '@react-native-firebase/auth';
+import { userService, Transaction, UserData } from '@/services/userService';
+
 const { width } = Dimensions.get('window');
 
 export default function StatisticScreen() {
-  const [activeFilter, setActiveFilter] = useState('Day');
+  const [activeFilter, setActiveFilter] = useState('Month');
   const filters = ['Day', 'Week', 'Month', 'Year'];
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const user = auth().currentUser;
+
+  React.useEffect(() => {
+    if (!user) return;
+    
+    // Subscribe to user and transactions
+    const unsubUser = userService.subscribeToUser(user.uid, setUserData);
+    const unsubTrans = userService.subscribeToTransactions(user.uid, setTransactions);
+    
+    return () => {
+      unsubUser();
+      unsubTrans();
+    };
+  }, [user]);
+
+  // Calculate stats
+  const totalSpending = transactions
+    .filter(t => t.amount < 0)
+    .reduce((acc, t) => acc + Math.abs(t.amount), 0);
+  
+  const totalIncome = transactions
+    .filter(t => t.amount > 0)
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const savings = totalIncome > totalSpending ? totalIncome - totalSpending : 0;
 
   // Simple SVG Line Chart helper
-  const chartData = [100, 150, 120, 250, 180, 300, 220]; // Dummy data
+  const chartData = transactions.length > 0 
+    ? transactions.slice(0, 7).map(t => Math.abs(t.amount)) 
+    : [100, 150, 120, 250, 180, 300, 220]; // Fallback
+  
   const chartHeight = 150;
   const chartWidth = width - 80;
   const step = chartWidth / (chartData.length - 1);
@@ -45,19 +78,10 @@ export default function StatisticScreen() {
             <View style={styles.cardPreview}>
               <LinearGradient colors={[Colors.primary, '#9D50BB']} style={styles.smallCard}>
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardName}>Virtual Kuroo Master Card</Text>
-                  <Text style={styles.cardNumber}>**** 9809</Text>
+                  <Text style={styles.cardName}>{userData?.card?.type || 'VIS'} Card</Text>
+                  <Text style={styles.cardNumber}>{userData?.card?.number?.slice(-4) ? `**** ${userData.card.number.slice(-4)}` : '**** 0000'}</Text>
                 </View>
                 <Ionicons name="logo-mastercard" size={32} color="rgba(255,255,255,0.8)" />
-              </LinearGradient>
-            </View>
-            <View style={styles.cardPreview}>
-              <LinearGradient colors={['#0077FF', '#00C6FF']} style={styles.smallCard}>
-                <View style={styles.cardInfo}>
-                  <Text style={styles.cardName}>Travel Visa Card</Text>
-                  <Text style={styles.cardNumber}>**** 4432</Text>
-                </View>
-                <Ionicons name="card-outline" size={32} color="rgba(255,255,255,0.8)" />
               </LinearGradient>
             </View>
           </ScrollView>
@@ -66,7 +90,7 @@ export default function StatisticScreen() {
         {/* Spending Summary */}
         <View style={styles.spendingContainer}>
           <Text style={styles.spendingLabel}>Total Spending</Text>
-          <Text style={styles.spendingAmount}>$90,160.20</Text>
+          <Text style={styles.spendingAmount}>${totalSpending.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
         </View>
 
         {/* Filters */}
@@ -87,11 +111,11 @@ export default function StatisticScreen() {
         {/* Chart Section */}
         <View style={styles.chartWrapper}>
           <View style={styles.chartYAxis}>
-            <Text style={styles.axisLabel}>$500</Text>
-            <Text style={styles.axisLabel}>$400</Text>
-            <Text style={styles.axisLabel}>$300</Text>
-            <Text style={styles.axisLabel}>$200</Text>
-            <Text style={styles.axisLabel}>$100</Text>
+            <Text style={styles.axisLabel}>${(max).toFixed(0)}</Text>
+            <Text style={styles.axisLabel}>${(max * 0.75).toFixed(0)}</Text>
+            <Text style={styles.axisLabel}>${(max * 0.5).toFixed(0)}</Text>
+            <Text style={styles.axisLabel}>${(max * 0.25).toFixed(0)}</Text>
+            <Text style={styles.axisLabel}>$0</Text>
           </View>
           <View style={styles.chartContent}>
             <Svg height={chartHeight} width={chartWidth}>
@@ -112,15 +136,11 @@ export default function StatisticScreen() {
                 strokeWidth="3"
               />
             </Svg>
-            {/* Tooltip marker */}
-            <View style={[styles.tooltip, { left: 3 * step - 30, top: chartHeight - (chartData[3] / max) * chartHeight - 40 }]}>
-              <Text style={styles.tooltipText}>$305.00</Text>
-            </View>
             <View style={styles.chartXAxis}>
+              <Text style={styles.axisLabel}>Mon</Text>
+              <Text style={styles.axisLabel}>Tue</Text>
+              <Text style={styles.axisLabel}>Wed</Text>
               <Text style={styles.axisLabel}>Thu</Text>
-              <Text style={styles.axisLabel}>Fri</Text>
-              <Text style={[styles.axisLabel, { color: Colors.primary }]}>Sat</Text>
-              <Text style={styles.axisLabel}>Sun</Text>
             </View>
           </View>
         </View>
@@ -132,8 +152,8 @@ export default function StatisticScreen() {
               <Ionicons name="arrow-up" size={24} color={Colors.primary} />
             </View>
             <View>
-              <Text style={styles.statLabel}>Savings</Text>
-              <Text style={styles.statValue}>$6,120.10</Text>
+              <Text style={styles.statLabel}>Income</Text>
+              <Text style={styles.statValue}>${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
             </View>
           </View>
           <View style={styles.statCard}>
@@ -142,7 +162,7 @@ export default function StatisticScreen() {
             </View>
             <View>
               <Text style={styles.statLabel}>Expenses</Text>
-              <Text style={styles.statValue}>$2,345.00</Text>
+              <Text style={styles.statValue}>${totalSpending.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
             </View>
           </View>
         </View>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, Switch } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { Typography } from '@/constants/Typography';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,22 +8,80 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import { Button } from '@/components/Button';
 
+import auth from '@react-native-firebase/auth';
+import { userService, UserData, Transaction } from '@/services/userService';
+
 export default function CardDetailScreen() {
   const router = useRouter();
-  const percentage = 61;
+  const [userData, setUserData] = React.useState<UserData | null>(null);
+  const [transactions, setTransactions] = React.useState<Transaction[]>([]);
+  const user = auth().currentUser;
+
+  React.useEffect(() => {
+    if (!user) return;
+    const unsubscribeUser = userService.subscribeToUser(user.uid, setUserData);
+    const unsubscribeTrans = userService.subscribeToTransactions(user.uid, setTransactions);
+    return () => {
+      unsubscribeUser();
+      unsubscribeTrans();
+    };
+  }, [user]);
+
+  // Calculate real monthly spending
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const monthlySpending = transactions
+    .filter(t => {
+      const d = t.date?.toDate ? t.date.toDate() : new Date(t.date);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear && t.amount < 0;
+    })
+    .reduce((acc, t) => acc + Math.abs(t.amount), 0);
+
+  const limit = userData?.card?.monthlyLimit || 8000;
+  const percentage = Math.min(Math.round((monthlySpending / limit) * 100), 100);
+  
   const radius = 30;
   const strokeWidth = 5;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
-  const renderMenuItem = (icon: any, title: string, color: string) => (
-    <TouchableOpacity style={styles.menuItem}>
+  const handleToggleFreeze = async (value: boolean) => {
+    if (!user) return;
+    try {
+      await userService.toggleCardFreeze(user.uid, value);
+      Alert.alert('Success', value ? 'Card frozen successfully' : 'Card unfrozen successfully');
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
+  };
+
+  const handleChangeLimit = () => {
+    Alert.prompt(
+      'Monthly Transfer Limit',
+      'Set your maximum monthly spending limit',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Set', onPress: (val) => {
+          if (val && !isNaN(parseFloat(val)) && user) {
+            userService.setMonthlyLimit(user.uid, parseFloat(val))
+              .then(() => Alert.alert('Success', 'Limit updated'))
+              .catch(err => Alert.alert('Error', err.message));
+          }
+        }}
+      ],
+      'plain-text',
+      limit.toString()
+    );
+  };
+
+  const renderMenuItem = (icon: any, title: string, color: string, rightElement?: React.ReactNode) => (
+    <View style={styles.menuItem}>
       <View style={[styles.menuIconContainer, { backgroundColor: color + '15' }]}>
         <Ionicons name={icon} size={22} color={color} />
       </View>
       <Text style={styles.menuTitle}>{title}</Text>
-      <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
-    </TouchableOpacity>
+      {rightElement || <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />}
+    </View>
   );
 
   return (
@@ -41,31 +99,38 @@ export default function CardDetailScreen() {
         {/* Card Section */}
         <View style={styles.cardContainer}>
           <LinearGradient
-            colors={[Colors.primary, '#9D50BB']}
+            colors={userData?.card?.isFrozen ? ['#BDBDBD', '#757575'] : [Colors.primary, '#9D50BB']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.card}
+            style={[styles.card, userData?.card?.isFrozen && { opacity: 0.8 }]}
           >
             <View style={styles.cardHeader}>
               <Ionicons name="wifi-outline" size={24} color={Colors.white} style={styles.cardWifi} />
-              <Text style={styles.cardType}>VIS</Text>
+              <View style={styles.cardHeaderRight}>
+                {userData?.card?.isFrozen && (
+                  <View style={styles.frozenBadge}>
+                    <Text style={styles.frozenText}>FROZEN</Text>
+                  </View>
+                )}
+                <Text style={styles.cardType}>{userData?.card?.type || 'VIS'}</Text>
+              </View>
             </View>
-            <Text style={styles.cardNumber}>1253  5432  3521  3090</Text>
+            <Text style={styles.cardNumber}>{userData?.card?.number || '****  ****  ****  ****'}</Text>
             <View style={styles.cardFooter}>
               <View>
                 <Text style={styles.cardHolderLabel}>Card Holder</Text>
-                <Text style={styles.cardHolderName}>Soroush Nasrpour</Text>
+                <Text style={styles.cardHolderName}>{userData?.card?.holderName || user?.displayName || 'User'}</Text>
               </View>
               <View>
                 <Text style={styles.cardHolderLabel}>Expires</Text>
-                <Text style={styles.cardHolderName}>09/24</Text>
+                <Text style={styles.cardHolderName}>{userData?.card?.expiry || '00/00'}</Text>
               </View>
             </View>
           </LinearGradient>
         </View>
 
         {/* Limit Section */}
-        <View style={styles.limitContainer}>
+        <TouchableOpacity style={styles.limitContainer} onPress={handleChangeLimit}>
           <View style={styles.progressContainer}>
             <Svg width={80} height={80}>
               <Circle
@@ -95,20 +160,51 @@ export default function CardDetailScreen() {
             </View>
           </View>
           <View style={styles.limitInfo}>
-            <Text style={styles.limitValue}>$5,000 out of 8,000</Text>
+            <Text style={styles.limitValue}>${monthlySpending.toLocaleString()} out of {limit.toLocaleString()}</Text>
             <Text style={styles.limitLabel}>Monthly Transfer Limit</Text>
           </View>
           <Ionicons name="chevron-forward" size={24} color={Colors.textSecondary} />
-        </View>
+        </TouchableOpacity>
 
         {/* Menu Items */}
         <View style={styles.menuList}>
-          {renderMenuItem('link-outline', 'Connect to Payment Service', Colors.primary)}
+          <TouchableOpacity onPress={() => handleToggleFreeze(!userData?.card?.isFrozen)}>
+            {renderMenuItem(
+              userData?.card?.isFrozen ? 'lock-open-outline' : 'lock-closed-outline', 
+              userData?.card?.isFrozen ? 'Unfreeze Card' : 'Freeze Card', 
+              userData?.card?.isFrozen ? '#00A86B' : '#FD3C4A',
+              <Switch 
+                value={userData?.card?.isFrozen} 
+                onValueChange={handleToggleFreeze}
+                trackColor={{ false: '#767577', true: Colors.primary }}
+              />
+            )}
+          </TouchableOpacity>
+          
           <TouchableOpacity onPress={() => router.push('/transaction-history')}>
             {renderMenuItem('time-outline', 'Transfer Activity History', '#0077FF')}
           </TouchableOpacity>
-          {renderMenuItem('create-outline', 'Change Card Username', '#FD3C4A')}
-          {renderMenuItem('document-text-outline', 'Transaction Report', '#00A86B')}
+          
+          <TouchableOpacity onPress={() => {
+            Alert.prompt(
+              'Change Card Username',
+              'Enter the new name for your card',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Change', onPress: (name) => {
+                  if (name && user) {
+                    userService.updateCardUsername(user.uid, name)
+                      .then(() => Alert.alert('Success', 'Card username updated'))
+                      .catch(err => Alert.alert('Error', err.message));
+                  }
+                }}
+              ],
+              'plain-text',
+              userData?.card?.holderName
+            );
+          }}>
+            {renderMenuItem('create-outline', 'Change Card Username', Colors.primary)}
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -163,6 +259,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  frozenBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  frozenText: {
+    fontFamily: Typography.fontFamily.bold,
+    fontSize: 10,
+    color: Colors.white,
   },
   cardWifi: {
     transform: [{ rotate: '90deg' }],
