@@ -1,13 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { Typography } from '@/constants/Typography';
 import { Button } from '@/components/Button';
 import { Ionicons } from '@expo/vector-icons';
+import auth from '@react-native-firebase/auth';
 
 export default function VerifyOTPScreen() {
   const router = useRouter();
+  const { verificationId, phoneNumber, name } = useLocalSearchParams<{ verificationId: string, phoneNumber: string, name?: string }>();
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const inputRefs = useRef<TextInput[]>([]);
 
@@ -28,11 +30,34 @@ export default function VerifyOTPScreen() {
     }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const otpString = otp.join('');
+    if (otpString.length < 6) {
+      Alert.alert('Error', 'Please enter the 6-digit code');
+      return;
+    }
+    
     console.log('Verifying OTP:', otpString);
-    // Integrate backend here later
-    // For demo, just navigate to a success state or home
+    
+    if (!verificationId) {
+      Alert.alert('Error', 'Missing verification session. Please go back and try again.');
+      return;
+    }
+
+    try {
+      const credential = auth.PhoneAuthProvider.credential(verificationId, otpString);
+      const userCredential = await auth().signInWithCredential(credential);
+      
+      if (name && userCredential.user) {
+        await userCredential.user.updateProfile({ displayName: name });
+      }
+
+      Alert.alert('Success', 'Verified successfully!', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)') } 
+      ]);
+    } catch (error: any) {
+      Alert.alert('Verification Failed', error.message);
+    }
   };
 
   return (
@@ -48,7 +73,7 @@ export default function VerifyOTPScreen() {
 
         <View style={styles.content}>
           <Text style={styles.title}>Enter your{'\n'}Verification Code</Text>
-          <Text style={styles.subtitle}>We sent a verification code to your email.</Text>
+          <Text style={styles.subtitle}>We sent a verification code to {phoneNumber || 'your phone'}.</Text>
 
           <View style={styles.otpContainer}>
             {otp.map((digit, index) => (

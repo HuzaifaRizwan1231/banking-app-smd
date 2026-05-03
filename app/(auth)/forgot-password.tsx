@@ -1,20 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { Typography } from '@/constants/Typography';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Ionicons } from '@expo/vector-icons';
-
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '@/firebaseConfig';
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
 
-  const handleContinue = () => {
-    // Hardcoded data for testing
-    console.log('Reset link sent to:', email);
-    // Integrate backend here later
+  const handleContinue = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Please enter your email');
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert('Success', 'Password reset email sent!');
+      router.push('/(auth)/login');
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
   };
 
   return (

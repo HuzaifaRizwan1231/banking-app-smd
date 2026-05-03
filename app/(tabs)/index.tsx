@@ -1,98 +1,344 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { Colors } from '@/constants/Colors';
+import { Typography } from '@/constants/Typography';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const { width } = Dimensions.get('window');
+
+const TRANSACTIONS = [
+  {
+    id: '1',
+    title: 'Transfer To Ahmad F',
+    date: '6 Sep 2024 • 17:02',
+    amount: -163.98,
+    type: 'transfer',
+    icon: 'swap-horizontal-outline',
+    iconBg: '#F5F5F5',
+  },
+  {
+    id: '2',
+    title: 'Mony Wallet',
+    date: '6 Sep 2024 • 17:02',
+    amount: 21.21,
+    type: 'deposit',
+    icon: 'wallet-outline',
+    iconBg: '#FFF3E0',
+  },
+  {
+    id: '3',
+    title: 'Transfer To Ahmad F',
+    date: '6 Sep 2024 • 17:02',
+    amount: 21.21,
+    type: 'transfer',
+    icon: 'swap-horizontal-outline',
+    iconBg: '#F5F5F5',
+  },
+  {
+    id: '4',
+    title: 'Shopping',
+    date: '6 Sep 2024 • 17:02',
+    amount: -102.00,
+    type: 'shopping',
+    icon: 'cart-outline',
+    iconBg: '#E1F5FE',
+  },
+];
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const router = useRouter();
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const renderQuickAction = (icon: any, label: string, color: string, onPress?: () => void) => (
+    <TouchableOpacity style={styles.actionItem} onPress={onPress}>
+      <View style={[styles.actionIconContainer, { backgroundColor: color }]}>
+        <Ionicons name={icon} size={24} color={Colors.white} />
+      </View>
+      <Text style={styles.actionLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.balanceLabel}>Total Balance</Text>
+            <Text style={styles.balanceAmount}>$980.45</Text>
+          </View>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.headerIcon}>
+              <Ionicons name="search-outline" size={24} color={Colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIcon}>
+              <Ionicons name="notifications-outline" size={24} color={Colors.text} />
+              <View style={styles.notificationBadge} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Card Section */}
+        <TouchableOpacity 
+          activeOpacity={0.9} 
+          onPress={() => router.push('/card-detail')}
+          style={styles.cardContainer}
+        >
+          <LinearGradient
+            colors={[Colors.primary, '#9D50BB']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.card}
+          >
+            <View style={styles.cardHeader}>
+              <Ionicons name="wifi-outline" size={24} color={Colors.white} style={styles.cardWifi} />
+              <Text style={styles.cardType}>VIS</Text>
+            </View>
+            <Text style={styles.cardNumber}>1253  5432  3521  3090</Text>
+            <View style={styles.cardFooter}>
+              <View>
+                <Text style={styles.cardHolderLabel}>Card Holder</Text>
+                <Text style={styles.cardHolderName}>Soroush Nasrpour</Text>
+              </View>
+              <View>
+                <Text style={styles.cardHolderLabel}>Expires</Text>
+                <Text style={styles.cardHolderName}>09/24</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Carousel Indicators */}
+        <View style={styles.indicators}>
+          <View style={[styles.indicator, styles.activeIndicator]} />
+          <View style={styles.indicator} />
+          <View style={styles.indicator} />
+          <View style={styles.indicator} />
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.actionsGrid}>
+          {renderQuickAction('swap-horizontal-outline', 'Transfers', '#7F3DFF', () => router.push('/send-money'))}
+          {renderQuickAction('card-outline', 'Payments', '#5B259F')}
+          {renderQuickAction('add-circle-outline', 'Top up', '#0077FF')}
+          {renderQuickAction('grid-outline', 'Details', '#1E1E1E')}
+        </View>
+
+        {/* Transactions */}
+        <View style={styles.transactionsHeader}>
+          <Text style={styles.sectionTitle}>Transactions</Text>
+          <TouchableOpacity onPress={() => router.push('/transaction-history')}>
+            <Text style={styles.seeMore}>See More</Text>
+          </TouchableOpacity>
+        </View>
+
+        {TRANSACTIONS.map((item) => (
+          <TouchableOpacity key={item.id} style={styles.transactionItem}>
+            <View style={[styles.transactionIconContainer, { backgroundColor: item.iconBg }]}>
+              <Ionicons name={item.icon as any} size={24} color={Colors.text} />
+            </View>
+            <View style={styles.transactionInfo}>
+              <Text style={styles.transactionTitle}>{item.title}</Text>
+              <Text style={styles.transactionDate}>{item.date}</Text>
+            </View>
+            <Text style={[
+              styles.transactionAmount,
+              { color: item.amount < 0 ? '#FD3C4A' : '#00A86B' }
+            ]}>
+              {item.amount < 0 ? `-$${Math.abs(item.amount)}` : `+$${item.amount}`}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: Colors.white,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  balanceLabel: {
+    fontFamily: Typography.fontFamily.medium,
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  balanceAmount: {
+    fontFamily: Typography.fontFamily.bold,
+    fontSize: Typography.fontSize.xxl,
+    color: Colors.text,
+    marginTop: 4,
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F9F9F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FD3C4A',
+    borderWidth: 1,
+    borderColor: Colors.white,
+  },
+  cardContainer: {
+    paddingHorizontal: 20,
+    marginTop: 24,
+  },
+  card: {
+    height: 200,
+    borderRadius: 24,
+    padding: 24,
+    justifyContent: 'space-between',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardWifi: {
+    transform: [{ rotate: '90deg' }],
+  },
+  cardType: {
+    fontFamily: Typography.fontFamily.bold,
+    fontSize: 24,
+    color: Colors.white,
+    letterSpacing: 1,
+  },
+  cardNumber: {
+    fontFamily: Typography.fontFamily.semiBold,
+    fontSize: 22,
+    color: Colors.white,
+    letterSpacing: 2,
+    marginTop: 10,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  cardHolderLabel: {
+    fontFamily: Typography.fontFamily.medium,
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
+    textTransform: 'uppercase',
+  },
+  cardHolderName: {
+    fontFamily: Typography.fontFamily.semiBold,
+    fontSize: 14,
+    color: Colors.white,
+    marginTop: 4,
+  },
+  indicators: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 16,
+  },
+  indicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E8E8E8',
+  },
+  activeIndicator: {
+    backgroundColor: Colors.primary,
+    width: 16,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginTop: 32,
+  },
+  actionItem: {
     alignItems: 'center',
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  actionIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  actionLabel: {
+    fontFamily: Typography.fontFamily.semiBold,
+    fontSize: 13,
+    color: Colors.text,
+  },
+  transactionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 40,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontFamily: Typography.fontFamily.semiBold,
+    fontSize: 18,
+    color: Colors.text,
+  },
+  seeMore: {
+    fontFamily: Typography.fontFamily.medium,
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  transactionIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  transactionInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  transactionTitle: {
+    fontFamily: Typography.fontFamily.semiBold,
+    fontSize: 15,
+    color: Colors.text,
+  },
+  transactionDate: {
+    fontFamily: Typography.fontFamily.medium,
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 4,
+  },
+  transactionAmount: {
+    fontFamily: Typography.fontFamily.semiBold,
+    fontSize: 16,
   },
 });

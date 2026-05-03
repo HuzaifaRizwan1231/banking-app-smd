@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "907124283200",
+    "project_id": "smd-project-b1827",
+    "storage_bucket": "smd-project-b1827.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:907124283200:android:c64acc374b7d0c44768ca5",
+        "android_client_info": {
+          "package_name": "com.smd.bankingapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "907124283200-ehua2vck9b25pfn15qo7qsnf93ofvmg3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIJjSfZ-BPrtWHEF0d4BKqwB5P_1JLW3g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "907124283200-ehua2vck9b25pfn15qo7qsnf93ofvmg3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
