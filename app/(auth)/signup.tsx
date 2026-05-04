@@ -18,31 +18,48 @@ GoogleSignin.configure({
 export default function SignupScreen() {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
-    if (!name || !phoneNumber) {
+    if (!name || !email || !password) {
       Alert.alert('Error', 'Please fill all fields');
       return;
     }
+    
+    setLoading(true);
     try {
-      await auth().verifyPhoneNumber(phoneNumber).on('state_changed', (phoneAuthSnapshot) => {
-        if (phoneAuthSnapshot.state === 'sent') {
-          Alert.alert('Success', 'Verification code sent!');
-          router.push({
-            pathname: '/(auth)/verify-otp',
-            params: { 
-              verificationId: phoneAuthSnapshot.verificationId, 
-              phoneNumber, 
-              name 
-            }
-          });
-        }
-      }, (error) => {
-        Alert.alert('Signup Failed', error.message);
+      // 1. Create the user in Firebase Auth
+      const userCredential = await auth().createUserWithEmailAndPassword(email.trim(), password);
+      
+      // 2. Update their display name in Auth
+      await userCredential.user.updateProfile({
+        displayName: name
       });
+
+      // 3. Initialize them in our Firestore database
+      const { userService } = require('@/services/userService');
+      await userService.initializeUser(userCredential.user.uid, {
+        displayName: name,
+        email: email.trim(),
+        phoneNumber: '', // No phone number anymore
+      });
+
+      Alert.alert('Success', 'Account created successfully!');
+      router.replace('/(tabs)');
     } catch (error: any) {
-      Alert.alert('Signup Failed', error.message);
+      let errorMessage = 'Signup failed. Please try again.';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'That email address is already in use.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'That email address is invalid.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password should be at least 6 characters.';
+      }
+      Alert.alert('Signup Failed', errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -118,10 +135,17 @@ export default function SignupScreen() {
             autoCapitalize="words"
           />
           <Input 
-            placeholder="Phone Number (e.g. +1234567890)" 
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
+            placeholder="Email Address" 
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <Input 
+            placeholder="Password" 
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
             autoCapitalize="none"
           />
 
@@ -132,7 +156,7 @@ export default function SignupScreen() {
             </Text>
           </View>
 
-          <Button title="Sign Up" onPress={handleSignup} style={styles.signupButton} />
+          <Button title="Sign Up" onPress={handleSignup} loading={loading} style={styles.signupButton} />
 
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />

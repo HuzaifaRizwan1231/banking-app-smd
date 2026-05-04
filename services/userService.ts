@@ -15,6 +15,13 @@ export interface UserData {
     isFrozen?: boolean;
     monthlyLimit?: number;
   };
+  beneficiaries?: Array<{
+    uid: string;
+    displayName: string;
+    email: string;
+    cardType: string;
+    cardNumber: string;
+  }>;
 }
 
 export interface Transaction {
@@ -40,6 +47,26 @@ export const userService = {
       const userDoc = await usersCollection().doc(uid).get();
       
       if (!userDoc.exists) {
+        // Generate unique random card number
+        let cardNumber = '';
+        let isUnique = false;
+        
+        while (!isUnique) {
+          const random4 = () => Math.floor(1000 + Math.random() * 9000);
+          cardNumber = `${random4()} ${random4()} ${random4()} ${random4()}`;
+          
+          const existingCard = await usersCollection().where('card.number', '==', cardNumber).limit(1).get();
+          if (existingCard.empty) {
+            isUnique = true;
+          }
+        }
+        
+        // Generate expiry date (exactly 5 years in advance, random month)
+        const now = new Date();
+        const year = (now.getFullYear() + 5).toString().slice(-2);
+        const month = (Math.floor(Math.random() * 12) + 1).toString().padStart(2, '0');
+        const expiry = `${month}/${year}`;
+
         const initialData: UserData = {
           uid,
           displayName: data.displayName || 'User',
@@ -48,10 +75,10 @@ export const userService = {
           location: 'Not set',
           balance: 1000.00, // Starting balance for demo
           card: {
-            number: '1253  5432  3521  3090',
+            number: cardNumber,
             holderName: data.displayName || 'User',
-            expiry: '09/24',
-            type: 'VIS',
+            expiry: expiry,
+            type: Math.random() > 0.5 ? 'VIS' : 'MAS',
           },
         };
         await usersCollection().doc(uid).set(initialData);
@@ -274,5 +301,118 @@ export const userService = {
       // Update balance
       t.update(userRef, { balance: newBalance });
     });
+  },
+
+  /**
+   * Transfers money from one user to another
+   */
+  async transferMoney(senderUid: string, recipientUid: string, amount: number, title: string) {
+    if (amount <= 0) throw new Error('Amount must be greater than zero');
+    
+    const senderRef = firestore().collection('users').doc(senderUid);
+    const recipientRef = firestore().collection('users').doc(recipientUid);
+
+    return firestore().runTransaction(async (t) => {
+      const senderDoc = await t.get(senderRef);
+      const recipientDoc = await t.get(recipientRef);
+
+      if (!senderDoc.exists) throw new Error('Sender does not exist');
+      if (!recipientDoc.exists) throw new Error('Recipient does not exist');
+
+      const senderData = senderDoc.data() as UserData;
+      const recipientData = recipientDoc.data() as UserData;
+
+      if (senderData.card?.isFrozen) {
+        throw new Error('Transaction declined: Your card is currently frozen.');
+      }
+
+      if (senderData.balance < amount) {
+        throw new Error('Insufficient funds');
+      }
+
+      // Update balances
+      t.update(senderRef, { balance: senderData.balance - amount });
+      t.update(recipientRef, { balance: recipientData.balance + amount });
+
+      // Create transaction for sender (negative amount)
+      const senderTxRef = firestore().collection('transactions').doc();
+      t.set(senderTxRef, {
+        userId: senderUid,
+        title: title,
+        amount: -amount,
+        type: 'transfer_out',
+        icon: 'swap-horizontal-outline',
+        iconBg: '#F5F5F5',
+        date: firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Create transaction for recipient (positive amount)
+      const recipientTxRef = firestore().collection('transactions').doc();
+      t.set(recipientTxRef, {
+        userId: recipientUid,
+        title: `Received from ${senderData.displayName}`,
+        amount: amount,
+        type: 'transfer_in',
+        icon: 'arrow-down-outline',
+        iconBg: '#E8F5E9', // Light green
+        date: firestore.FieldValue.serverTimestamp(),
+      });
+    });
+  },
+
+  /**
+   * Search for a user by email
+   */
+  async searchUserByEmail(email: string): Promise<UserData | null> {
+    try {
+      const snapshot = await firestore()
+        .collection('users')
+        .where('email', '==', email.toLowerCase().trim())
+        .limit(1)
+        .get();
+      
+      if (snapshot.empty) return null;
+      return snapshot.docs[0].data() as UserData;
+    } catch (error) {
+      console.error('Error searching user:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Adds a beneficiary to a user's list
+   */
+  async addBeneficiary(uid: string, beneficiary: UserData) {
+    try {
+      const userRef = firestore().collection('users').doc(uid);
+      const userDoc = await userRef.get();
+      
+      if (!userDoc.exists) throw new Error('User not found');
+      
+      const userData = userDoc.data() as UserData;
+      const beneficiaries = userData.beneficiaries || [];
+      
+      // Check if already exists
+      if (beneficiaries.some(b => b.uid === beneficiary.uid)) {
+        throw new Error('Beneficiary already added');
+      }
+
+      const newBeneficiary = {
+        uid: beneficiary.uid,
+        displayName: beneficiary.displayName,
+        email: beneficiary.email,
+        cardType: beneficiary.card?.type || 'VIS',
+        cardNumber: beneficiary.card?.number || '**** 0000',
+      };
+
+      await userRef.update({
+        beneficiaries: firestore.FieldValue.arrayUnion(newBeneficiary)
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error adding beneficiary:', error);
+      throw error;
+    }
   }
 };

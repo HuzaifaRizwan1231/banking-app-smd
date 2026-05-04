@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, Switch, Modal, TextInput, Dimensions } from 'react-native';
 import { Colors } from '@/constants/Colors';
+
+const { width } = Dimensions.get('window');
 import { Typography } from '@/constants/Typography';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -15,6 +17,10 @@ export default function CardDetailScreen() {
   const router = useRouter();
   const [userData, setUserData] = React.useState<UserData | null>(null);
   const [transactions, setTransactions] = React.useState<Transaction[]>([]);
+  const [usernameModalVisible, setUsernameModalVisible] = React.useState(false);
+  const [limitModalVisible, setLimitModalVisible] = React.useState(false);
+  const [newCardName, setNewCardName] = React.useState('');
+  const [newLimit, setNewLimit] = React.useState('');
   const user = auth().currentUser;
 
   React.useEffect(() => {
@@ -55,23 +61,36 @@ export default function CardDetailScreen() {
     }
   };
 
-  const handleChangeLimit = () => {
-    Alert.prompt(
-      'Monthly Transfer Limit',
-      'Set your maximum monthly spending limit',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Set', onPress: (val) => {
-          if (val && !isNaN(parseFloat(val)) && user) {
-            userService.setMonthlyLimit(user.uid, parseFloat(val))
-              .then(() => Alert.alert('Success', 'Limit updated'))
-              .catch(err => Alert.alert('Error', err.message));
-          }
-        }}
-      ],
-      'plain-text',
-      limit.toString()
-    );
+  const handleChangeUsername = async () => {
+    if (!newCardName.trim()) {
+      Alert.alert('Error', 'Please enter a name');
+      return;
+    }
+    if (!user) return;
+    try {
+      await userService.updateCardUsername(user.uid, newCardName.trim());
+      Alert.alert('Success', 'Card username updated');
+      setUsernameModalVisible(false);
+      setNewCardName('');
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
+  };
+
+  const handleChangeLimit = async () => {
+    if (!newLimit || isNaN(parseFloat(newLimit)) || parseFloat(newLimit) <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+    if (!user) return;
+    try {
+      await userService.setMonthlyLimit(user.uid, parseFloat(newLimit));
+      Alert.alert('Success', 'Limit updated');
+      setLimitModalVisible(false);
+      setNewLimit('');
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
   };
 
   const renderMenuItem = (icon: any, title: string, color: string, rightElement?: React.ReactNode) => (
@@ -130,7 +149,10 @@ export default function CardDetailScreen() {
         </View>
 
         {/* Limit Section */}
-        <TouchableOpacity style={styles.limitContainer} onPress={handleChangeLimit}>
+        <TouchableOpacity style={styles.limitContainer} onPress={() => {
+          setNewLimit(limit.toString());
+          setLimitModalVisible(true);
+        }}>
           <View style={styles.progressContainer}>
             <Svg width={80} height={80}>
               <Circle
@@ -186,27 +208,65 @@ export default function CardDetailScreen() {
           </TouchableOpacity>
           
           <TouchableOpacity onPress={() => {
-            Alert.prompt(
-              'Change Card Username',
-              'Enter the new name for your card',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Change', onPress: (name) => {
-                  if (name && user) {
-                    userService.updateCardUsername(user.uid, name)
-                      .then(() => Alert.alert('Success', 'Card username updated'))
-                      .catch(err => Alert.alert('Error', err.message));
-                  }
-                }}
-              ],
-              'plain-text',
-              userData?.card?.holderName
-            );
+            setNewCardName(userData?.card?.holderName || '');
+            setUsernameModalVisible(true);
           }}>
             {renderMenuItem('create-outline', 'Change Card Username', Colors.primary)}
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Change Username Modal */}
+      <Modal visible={usernameModalVisible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Change Card Username</Text>
+              <TouchableOpacity onPress={() => setUsernameModalVisible(false)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>Enter the new name for your card</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="New card name"
+              value={newCardName}
+              onChangeText={setNewCardName}
+              autoCapitalize="words"
+              placeholderTextColor={Colors.textSecondary}
+            />
+            <View style={{ marginTop: 16 }}>
+              <Button title="Change" onPress={handleChangeUsername} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Change Limit Modal */}
+      <Modal visible={limitModalVisible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Monthly Transfer Limit</Text>
+              <TouchableOpacity onPress={() => setLimitModalVisible(false)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>Set your maximum monthly spending limit</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter amount"
+              value={newLimit}
+              onChangeText={setNewLimit}
+              keyboardType="decimal-pad"
+              placeholderTextColor={Colors.textSecondary}
+            />
+            <View style={{ marginTop: 16 }}>
+              <Button title="Set Limit" onPress={handleChangeLimit} />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Footer Button */}
       <View style={styles.footer}>
@@ -384,5 +444,51 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 24,
+    padding: 24,
+    width: width - 40,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontFamily: Typography.fontFamily.bold,
+    fontSize: 20,
+    color: Colors.text,
+  },
+  modalSubtitle: {
+    fontFamily: Typography.fontFamily.medium,
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 16,
+  },
+  modalInput: {
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 16,
+    fontFamily: Typography.fontFamily.regular,
+    fontSize: 16,
+    color: Colors.text,
+    backgroundColor: Colors.white,
   },
 });

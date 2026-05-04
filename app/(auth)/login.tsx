@@ -17,31 +17,30 @@ GoogleSignin.configure({
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!phoneNumber) {
-      Alert.alert('Error', 'Please enter your phone number');
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
       return;
     }
+    
+    setLoading(true);
     try {
-      // Use verifyPhoneNumber to get the verificationId
-      await auth().verifyPhoneNumber(phoneNumber).on('state_changed', (phoneAuthSnapshot) => {
-        if (phoneAuthSnapshot.state === 'sent') {
-          Alert.alert('Success', 'Verification code sent!');
-          router.push({
-            pathname: '/(auth)/verify-otp',
-            params: { 
-              verificationId: phoneAuthSnapshot.verificationId,
-              phoneNumber 
-            }
-          });
-        }
-      }, (error) => {
-        Alert.alert('Login Failed', error.message);
-      });
+      await auth().signInWithEmailAndPassword(email.trim(), password);
+      router.replace('/(tabs)');
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message);
+      let errorMessage = 'Login failed. Please check your credentials.';
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        errorMessage = 'Invalid email or password.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      }
+      Alert.alert('Login Failed', errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -111,14 +110,22 @@ export default function LoginScreen() {
 
         <View style={styles.form}>
           <Input 
-            placeholder="Phone Number (e.g. +1234567890)" 
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
+            placeholder="Email Address" 
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
             autoCapitalize="none"
           />
 
-          <Button title="Login" onPress={handleLogin} style={styles.loginButton} />
+          <Input 
+            placeholder="Password" 
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+          />
+
+          <Button title="Login" onPress={handleLogin} loading={loading} style={styles.loginButton} />
 
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />

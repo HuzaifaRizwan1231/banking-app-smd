@@ -42,15 +42,78 @@ export default function StatisticScreen() {
 
   const savings = totalIncome > totalSpending ? totalIncome - totalSpending : 0;
 
-  // Simple SVG Line Chart helper
-  const chartData = transactions.length > 0 
-    ? transactions.slice(0, 7).map(t => Math.abs(t.amount)) 
-    : [100, 150, 120, 250, 180, 300, 220]; // Fallback
+  // Process data based on filter
+  const getFilteredData = () => {
+    const now = new Date();
+    let filtered = transactions.filter(t => t.amount < 0); // Only spending for the chart
+    let dataPoints: number[] = [];
+    let labels: string[] = [];
+
+    if (activeFilter === 'Day') {
+      // Last 7 days for better visualization if today is empty
+      labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const dayData = new Array(7).fill(0);
+      filtered.forEach(t => {
+        const date = t.date?.toDate ? t.date.toDate() : new Date(t.date);
+        const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays < 7) {
+          const dayIndex = (now.getDay() - diffDays + 6) % 7;
+          dayData[dayIndex] += Math.abs(t.amount);
+        }
+      });
+      dataPoints = dayData;
+    } else if (activeFilter === 'Week') {
+      labels = ['W1', 'W2', 'W3', 'W4'];
+      const weekData = new Array(4).fill(0);
+      filtered.forEach(t => {
+        const date = t.date?.toDate ? t.date.toDate() : new Date(t.date);
+        const diffWeeks = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24 * 7));
+        if (diffWeeks < 4) {
+          weekData[3 - diffWeeks] += Math.abs(t.amount);
+        }
+      });
+      dataPoints = weekData;
+    } else if (activeFilter === 'Month') {
+      labels = ['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov'];
+      const monthData = new Array(12).fill(0);
+      filtered.forEach(t => {
+        const date = t.date?.toDate ? t.date.toDate() : new Date(t.date);
+        if (date.getFullYear() === now.getFullYear()) {
+          monthData[date.getMonth()] += Math.abs(t.amount);
+        }
+      });
+      dataPoints = monthData;
+      labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        .filter((_, i) => i % 2 === 0);
+      dataPoints = monthData.filter((_, i) => i % 2 === 0);
+    } else if (activeFilter === 'Year') {
+      const currentYear = now.getFullYear();
+      labels = [String(currentYear - 2), String(currentYear - 1), String(currentYear)];
+      const yearData = new Array(3).fill(0);
+      filtered.forEach(t => {
+        const date = t.date?.toDate ? t.date.toDate() : new Date(t.date);
+        const diffYears = currentYear - date.getFullYear();
+        if (diffYears >= 0 && diffYears < 3) {
+          yearData[2 - diffYears] += Math.abs(t.amount);
+        }
+      });
+      dataPoints = yearData;
+    }
+
+    // Fallback if no data
+    if (dataPoints.every(v => v === 0)) {
+      dataPoints = [100, 150, 120, 250, 180, 300, 220].slice(0, labels.length);
+    }
+
+    return { dataPoints, labels };
+  };
+
+  const { dataPoints: chartData, labels: chartLabels } = getFilteredData();
   
   const chartHeight = 150;
   const chartWidth = width - 80;
-  const step = chartWidth / (chartData.length - 1);
-  const max = Math.max(...chartData);
+  const step = chartWidth / (chartData.length - 1 || 1);
+  const max = Math.max(...chartData, 100); // Avoid division by zero
   
   const points = chartData.map((val, i) => {
     const x = i * step;
@@ -137,10 +200,9 @@ export default function StatisticScreen() {
               />
             </Svg>
             <View style={styles.chartXAxis}>
-              <Text style={styles.axisLabel}>Mon</Text>
-              <Text style={styles.axisLabel}>Tue</Text>
-              <Text style={styles.axisLabel}>Wed</Text>
-              <Text style={styles.axisLabel}>Thu</Text>
+              {chartLabels.map((label, index) => (
+                <Text key={index} style={styles.axisLabel}>{label}</Text>
+              ))}
             </View>
           </View>
         </View>
